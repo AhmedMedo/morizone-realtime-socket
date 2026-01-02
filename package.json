@@ -2,7 +2,7 @@
     "name": "morizone-realtime-server",
     "version": "1.0.0",
     "description": "Socket.io server for Morizone real-time tracking and offers",
-    "main": "src/index.js",
+    "main": "index.js",
     "scripts": {
         "start": "node index.js",
         "dev": "nodemon index.js"
