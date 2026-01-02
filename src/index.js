@@ -12,9 +12,16 @@ const io = new Server(server, {
     cors: { origin: '*', methods: ['GET', 'POST'] }
 });
 
-const PORT = process.env.PORT || 3001;
-const INTERNAL_SECRET = process.env.INTERNAL_SECRET || 'dev-secret';
-const LARAVEL_API_URL = process.env.LARAVEL_API_URL || 'http://localhost:8000';
+const PORT = process.env.PORT;
+if (!PORT) {
+  throw new Error('PORT not provided by Passenger');
+}
+const INTERNAL_SECRET = process.env.INTERNAL_SECRET;
+const LARAVEL_API_URL = process.env.LARAVEL_API_URL;
+
+if (!INTERNAL_SECRET || !LARAVEL_API_URL) {
+  throw new Error('Missing environment variables');
+}
 
 // ============================================
 // LOGGING HELPER
