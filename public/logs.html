@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.io Server Logs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+
+        .header {
+            background: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        h1 {
+            color: #4ec9b0;
+            font-size: 24px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat {
+            background: #2d2d30;
+            padding: 10px 20px;
+            border-radius: 6px;
+        }
+
+        .stat-label {
+            color: #858585;
+            font-size: 12px;
+        }
+
+        .stat-value {
+            color: #4ec9b0;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .controls {
+            background: #252526;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        .logs-container {
+            background: #1e1e1e;
+            border: 1px solid #3c3c3c;
+            border-radius: 8px;
+            height: calc(100vh - 250px);
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-left: 3px solid transparent;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        .log-entry:hover {
+            background: #2d2d30;
+        }
+
+        .log-SERVER {
+            border-left-color: #4ec9b0;
+        }
+
+        .log-HTTP {
+            border-left-color: #569cd6;
+        }
+
+        .log-SOCKET {
+            border-left-color: #dcdcaa;
+        }
+
+        .log-AUTH {
+            border-left-color: #c586c0;
+        }
+
+        .log-ERROR {
+            border-left-color: #f48771;
+            background: #2d1f1f;
+        }
+
+        .log-timestamp {
+            color: #858585;
+            margin-right: 10px;
+        }
+
+        .log-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .log-type-SERVER {
+            background: #1a4d3d;
+            color: #4ec9b0;
+        }
+
+        .log-type-HTTP {
+            background: #1a3a5c;
+            color: #569cd6;
+        }
+
+        .log-type-SOCKET {
+            background: #4d4d1a;
+            color: #dcdcaa;
+        }
+
+        .log-type-AUTH {
+            background: #4d1a4d;
+            color: #c586c0;
+        }
+
+        .log-type-ERROR {
+            background: #5c1a1a;
+            color: #f48771;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>🔌 Socket.io Server Logs</h1>
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Connections</div>
+                <div class="stat-value" id="connections">0</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Total Logs</div>
+                <div class="stat-value" id="totalLogs">0</div>
+            </div>
+        </div>
+    </div>
+    <div class="controls">
+        <button onclick="clearLogs()">Clear Logs</button>
+        <button onclick="exportLogs()">Export Logs</button>
+    </div>
+    <div class="logs-container" id="logsContainer">
+        <div class="log-entry log-SERVER"><span class="log-timestamp">Connecting...</span></div>
+    </div>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        let logs = [];
+        const logsContainer = document.getElementById('logsContainer');
+        const socket = io('http://localhost:3001', {
+            query: { user_type: 'logs_viewer' }  // Bypass auth for logs viewer
+        });
+        socket.on('connect', () => addLog('SERVER', 'Connected to Socket.io server'));
+        socket.on('disconnect', () => addLog('ERROR', 'Disconnected'));
+        socket.on('server:log', (data) => addLog(data.type, data.message, data.data));
+        function addLog(type, message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.push({ timestamp, type, message, data });
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-timestamp">${timestamp}</span><span class="log-type log-type-${type}">${type}</span><span>${message}</span>`;
+            logsContainer.appendChild(entry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+            document.getElementById('totalLogs').textContent = logs.length;
+        }
+        function clearLogs() { logs = []; logsContainer.innerHTML = ''; }
+        function exportLogs() {
+            const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `socket-logs-${Date.now()}.json`;
+            a.click();
+        }
+        setInterval(async () => {
+            try {
+                const res = await fetch('/health');
+                const data = await res.json();
+                document.getElementById('connections').textContent = data.connections || 0;
+            } catch (e) { }
+        }, 5000);
+    </script>
+</body>
+
+</html>

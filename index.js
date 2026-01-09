@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 
 const app = express();
 app.use(express.json());
+app.use(express.static('public')); // Serve static files from public directory
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -14,13 +15,13 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT;
 if (!PORT) {
-  throw new Error('PORT not provided by Passenger');
+    throw new Error('PORT not provided by Passenger');
 }
 const INTERNAL_SECRET = process.env.INTERNAL_SECRET;
 const LARAVEL_API_URL = process.env.LARAVEL_API_URL;
 
 if (!INTERNAL_SECRET || !LARAVEL_API_URL) {
-  throw new Error('Missing environment variables');
+    throw new Error('Missing environment variables');
 }
 
 // ============================================
@@ -30,6 +31,14 @@ function log(type, message, data = null) {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] [${type}] ${message}`);
     if (data) console.log(JSON.stringify(data, null, 2));
+
+    // Broadcast log to connected logs viewers
+    io.emit('server:log', {
+        type,
+        message,
+        data,
+        timestamp
+    });
 }
 
 // ============================================
@@ -139,6 +148,13 @@ io.use(async (socket, next) => {
         userType,
         ip: socket.handshake.address
     });
+
+    // Allow logs viewer without authentication
+    if (userType === 'logs_viewer') {
+        log('AUTH', 'Logs viewer: allowing unauthenticated connection');
+        socket.user = { id: 'logs-viewer', type: 'logs_viewer', name: 'Logs Viewer' };
+        return next();
+    }
 
     // Skip auth for development/testing if no token
     if (!token && process.env.NODE_ENV === 'development') {
